@@ -51,8 +51,7 @@ model = dict(
         activation_cfg=dict(
             type='LeakyReLU', negative_slope=0.1, inplace=True),
         loss_bbox=dict(
-            type='IoULoss',
-            use_complete=True,
+            type='CompleteIoULoss',
             reduction='mean',
             loss_weight=1.0),
         loss_obj=dict(
@@ -66,20 +65,18 @@ model = dict(
     )
 )
 train_cfg = dict(
-    single_stage=dict(
-        iou_thresh=0.213,
-        ignore_thresh=0.7,
-        smoothl1_beta=1.,
-        allowed_border=-1,
-        pos_weight=-1,
-        neg_pos_ratio=3,
-        debug=False))
+    iou_thresh=0.213,
+    ignore_thresh=0.7,
+    smoothl1_beta=1.,
+    allowed_border=-1,
+    pos_weight=-1,
+    neg_pos_ratio=3,
+    debug=False)
 test_cfg = dict(
-    single_stage=dict(
-        nms=dict(type='nms', iou_thr=0.6),
-        min_bbox_size=0,
-        score_thr=0.001,
-        max_per_img=100))
+    nms=dict(type='nms', iou_thr=0.6),
+    min_bbox_size=0,
+    score_thr=0.001,
+    max_per_img=100)
 dataset_type = 'CocoDataset'
 data_root = 'data/coco2017/'
 img_norm_cfg = dict(

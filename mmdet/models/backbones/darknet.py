@@ -5,8 +5,8 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from mmcv.cnn import constant_init, kaiming_init, normal_init
 from mmcv.runner import load_checkpoint
 from ..registry import BACKBONES
-from ..utils import build_conv_layer, build_norm_layer,
-                    build_activation_layer
+from ..utils import (build_conv_layer, build_norm_layer,
+                     build_activation_layer)
 
 
 # A help function to build a 'conv-bn-activation' module
