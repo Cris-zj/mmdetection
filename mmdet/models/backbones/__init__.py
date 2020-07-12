@@ -1,3 +1,4 @@
+from .darknet import DarkNet
 from .hrnet import HRNet
 from .resnet import ResNet, make_res_layer
 from .resnext import ResNeXt
