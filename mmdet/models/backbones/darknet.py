@@ -19,7 +19,7 @@ def ConvNormActivation(inplanes,
                        groups=1,
                        conv_cfg=None,
                        norm_cfg=dict(type='BN'),
-                       activation_cfg=dict(type='LeakyReLU',
+                       act_cfg=dict(type='LeakyReLU',
                                            negative_slope=0.1)):
     layers = []
     layers.append(build_conv_layer(conv_cfg,
@@ -32,7 +32,7 @@ def ConvNormActivation(inplanes,
                                    groups=groups,
                                    bias=False))
     layers.append(build_norm_layer(norm_cfg, planes)[1])
-    layers.append(build_activation_layer(activation_cfg))
+    layers.append(build_activation_layer(act_cfg))
     return nn.Sequential(*layers)
 
 
@@ -44,7 +44,7 @@ class DarkBlock(nn.Module):
                  downsample=None,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 activation_cfg=dict(type='LeakyReLU', negative_slope=0.1)):
+                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1)):
         """Residual Block for DarkNet.
         This module has the dowsample layer (optional),
         1x1 conv layer and 3x3 conv layer.
@@ -80,7 +80,7 @@ class DarkBlock(nn.Module):
         )
         self.add_module(self.norm2_name, norm2)
 
-        self.activation = build_activation_layer(activation_cfg)
+        self.activation = build_activation_layer(act_cfg)
 
     @property
     def norm1(self):
@@ -130,7 +130,7 @@ class CrossStagePartialBlock(nn.Module):
             CSPNet is different from other stages.
         conv_cfg (dict): dictionary to construct and config conv layer.
         norm_cfg (dict): dictionary to construct and config norm layer.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
     """
 
@@ -141,7 +141,7 @@ class CrossStagePartialBlock(nn.Module):
                  is_csp_first_stage,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 activation_cfg=dict(type='LeakyReLU', negative_slope=0.1)):
+                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1)):
         super(CrossStagePartialBlock, self).__init__()
 
         self.base_layer = ConvNormActivation(
@@ -152,7 +152,7 @@ class CrossStagePartialBlock(nn.Module):
             padding=1,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            activation_cfg=activation_cfg
+            act_cfg=act_cfg
         )
         self.partial_transition1 = ConvNormActivation(
             inplanes=planes,
@@ -162,7 +162,7 @@ class CrossStagePartialBlock(nn.Module):
             padding=0,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            activation_cfg=activation_cfg
+            act_cfg=act_cfg
         )
         self.stage_layers = stage_layers
 
@@ -174,7 +174,7 @@ class CrossStagePartialBlock(nn.Module):
             padding=0,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            activation_cfg=activation_cfg
+            act_cfg=act_cfg
         )
         self.fuse_transition = ConvNormActivation(
             inplanes=planes if not is_csp_first_stage else planes * 2,
@@ -184,7 +184,7 @@ class CrossStagePartialBlock(nn.Module):
             padding=0,
             conv_cfg=conv_cfg,
             norm_cfg=norm_cfg,
-            activation_cfg=activation_cfg
+            act_cfg=act_cfg
         )
 
     def forward(self, x):
@@ -207,7 +207,7 @@ def make_dark_layer(block,
                     num_blocks,
                     conv_cfg,
                     norm_cfg,
-                    activation_cfg):
+                    act_cfg):
     downsample = ConvNormActivation(
         inplanes=inplanes,
         planes=planes,
@@ -216,7 +216,7 @@ def make_dark_layer(block,
         padding=1,
         conv_cfg=conv_cfg,
         norm_cfg=norm_cfg,
-        activation_cfg=activation_cfg
+        act_cfg=act_cfg
     )
 
     layers = []
@@ -228,7 +228,7 @@ def make_dark_layer(block,
                 downsample=downsample if i == 0 else None,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
         )
     return nn.Sequential(*layers)
@@ -241,7 +241,7 @@ def make_cspdark_layer(block,
                        is_csp_first_stage,
                        conv_cfg,
                        norm_cfg,
-                       activation_cfg):
+                       act_cfg):
     downsample = ConvNormActivation(
         inplanes=planes,
         planes=planes if is_csp_first_stage else inplanes,
@@ -250,7 +250,7 @@ def make_cspdark_layer(block,
         padding=0,
         conv_cfg=conv_cfg,
         norm_cfg=norm_cfg,
-        activation_cfg=activation_cfg
+        act_cfg=act_cfg
     )
 
     layers = []
@@ -262,7 +262,7 @@ def make_cspdark_layer(block,
                 downsample=downsample if i == 0 else None,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
         )
     return nn.Sequential(*layers)
@@ -285,7 +285,7 @@ class DarkNet(nn.Module):
         norm_eval (bool): Whether to set norm layers to eval mode, namely,
             freeze running stats (mean and var). Note: Effect on Batch Norm
             and its variants only.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
     """
 
@@ -302,7 +302,7 @@ class DarkNet(nn.Module):
                  conv_cfg=None,
                  norm_cfg=dict(type='BN', requires_grad=True),
                  norm_eval=True,
-                 activation_cfg=dict(type='LeakyReLU',
+                 act_cfg=dict(type='LeakyReLU',
                                      negative_slope=0.1, inplace=True),
                  with_classifier=False,
                  num_classes=1000):
@@ -319,7 +319,7 @@ class DarkNet(nn.Module):
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.norm_eval = norm_eval
-        self.activation_cfg = activation_cfg
+        self.act_cfg = act_cfg
 
         self.block, stage_blocks = self.arch_settings[depth]
         self.stage_blocks = stage_blocks[:num_stages]
@@ -338,7 +338,7 @@ class DarkNet(nn.Module):
                     num_blocks=num_blocks,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    activation_cfg=self.activation_cfg
+                    act_cfg=self.act_cfg
                 )
             else:
                 layer = make_cspdark_layer(
@@ -349,7 +349,7 @@ class DarkNet(nn.Module):
                     is_csp_first_stage=True if i == 0 else False,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    activation_cfg=self.activation_cfg
+                    act_cfg=self.act_cfg
                 )
                 layer = CrossStagePartialBlock(
                     self.inplanes,
@@ -358,7 +358,7 @@ class DarkNet(nn.Module):
                     is_csp_first_stage=True if i == 0 else False,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    activation_cfg=self.activation_cfg
+                    act_cfg=self.act_cfg
                 )
             self.inplanes = planes
             layer_name = 'layer{}'.format(i + 1)
@@ -378,7 +378,7 @@ class DarkNet(nn.Module):
             bias=False
         )
         self.bn1 = build_norm_layer(self.norm_cfg, self.inplanes)[1]
-        self.act1 = build_activation_layer(self.activation_cfg)
+        self.act1 = build_activation_layer(self.act_cfg)
 
     def _freeze_stages(self):
         if self.frozen_stages >= 0:

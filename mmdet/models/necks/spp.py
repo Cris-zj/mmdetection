@@ -21,7 +21,7 @@ class SPP(nn.Module):
         out_pool_size (Iterable): expected output size of max pooling layer
         conv_cfg (dict): dictionary to construct and config conv layer.
         norm_cfg (dict): dictionary to construct and config norm layer.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
     returns:
         a tensor vector with shape [1 x n] is the concentration of
@@ -37,7 +37,7 @@ class SPP(nn.Module):
                  out_pool_size,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 activation_cfg=dict(type='LeakyReLU', negative_slope=0.1,
+                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
                                      inplace=True)):
         super(SPP, self).__init__()
         self.inplanes = in_channels
@@ -52,7 +52,7 @@ class SPP(nn.Module):
                 padding=padding[i],
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
             self.inplanes = outplanes
             layer_name = 'spp_conv{}'.format(i + 1)

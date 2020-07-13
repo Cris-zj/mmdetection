@@ -58,7 +58,7 @@ class ConvModule(nn.Module):
             False.
         conv_cfg (dict): Config dict for convolution layer.
         norm_cfg (dict): Config dict for normalization layer.
-        activation_cfg (str or None): Config dict for activation layer,
+        act_cfg (str or None): Config dict for activation layer,
             "ReLU" by default.
         inplace (bool): Whether to use inplace mode for activation.
         order (tuple[str]): The order of conv/norm/activation layers. It is a
@@ -77,7 +77,7 @@ class ConvModule(nn.Module):
                  bias='auto',
                  conv_cfg=None,
                  norm_cfg=None,
-                 activation_cfg=dict(type='ReLU'),
+                 act_cfg=dict(type='ReLU'),
                  inplace=True,
                  order=('conv', 'norm', 'act')):
         super(ConvModule, self).__init__()
@@ -85,14 +85,14 @@ class ConvModule(nn.Module):
         assert norm_cfg is None or isinstance(norm_cfg, dict)
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
-        self.activation_cfg = activation_cfg
+        self.act_cfg = act_cfg
         self.inplace = inplace
         self.order = order
         assert isinstance(self.order, tuple) and len(self.order) == 3
         assert set(order) == set(['conv', 'norm', 'act'])
 
         self.with_norm = norm_cfg is not None
-        self.with_activatation = activation_cfg is not None
+        self.with_activatation = act_cfg is not None
         # if the conv layer is before a norm layer, bias is unnecessary.
         if bias == 'auto':
             bias = False if self.with_norm else True
@@ -135,7 +135,7 @@ class ConvModule(nn.Module):
 
         # build activation layer
         if self.with_activatation:
-            self.activate = build_activation_layer(activation_cfg)
+            self.activate = build_activation_layer(act_cfg)
 
         # Use msra init by default
         self.init_weights()
@@ -145,13 +145,13 @@ class ConvModule(nn.Module):
         return getattr(self, self.norm_name)
 
     def init_weights(self):
-        if self.activation_cfg is None:
-            nonlinearity = 'relu'
+        if self.with_activatation and self.act_cfg.get('type').lower() == 'leakyrelu':
+            nonlinearity = 'leaky_relu'
+            a = self.act_cfg.get('negative_slope', 0.01)
         else:
-            nonlinearity = self.activation_cfg.get('type').lower()
-            if nonlinearity == 'leakyrelu':
-                nonlinearity = 'leaky_relu'
-        kaiming_init(self.conv, nonlinearity=nonlinearity)
+            nonlinearity = 'relu'
+            a = 0
+        kaiming_init(self.conv, a=a, nonlinearity=nonlinearity)
         if self.with_norm:
             constant_init(self.norm, 1, bias=0)
 

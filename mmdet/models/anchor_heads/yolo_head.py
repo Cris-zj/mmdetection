@@ -69,7 +69,7 @@ class YOLOV3Head(nn.Module):
         anchor_strides (Iterable): anchor strides.
         conv_cfg (dict): dictionary to construct and config conv layer.
         norm_cfg (dict): dictionary to construct and config norm layer.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
         loss_xy (dict): Config of localization loss.
         loss_wh (dict): Config of localization loss.
@@ -88,7 +88,7 @@ class YOLOV3Head(nn.Module):
                  anchor_strides=[8, 16, 32],
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 activation_cfg=dict(type='LeakyReLU', negative_slope=0.1,
+                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
                                      inplace=True),
                  loss_xy=dict(
                      type='CrossEntropyLoss',
@@ -131,7 +131,7 @@ class YOLOV3Head(nn.Module):
 
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
-        self.activation_cfg = activation_cfg
+        self.act_cfg = act_cfg
 
         self.use_sigmoid_cls = loss_cls.get('use_sigmoid', False)
         if self.use_sigmoid_cls:
@@ -157,7 +157,7 @@ class YOLOV3Head(nn.Module):
                     padding=1,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    activation_cfg=self.activation_cfg
+                    act_cfg=self.act_cfg
                 ),
                 nn.Conv2d(self.in_channels[i] * 2,
                           (self.num_classes - 1 + 5) * 3,
@@ -463,11 +463,9 @@ class YOLOV3Head(nn.Module):
                 (prediction[:, 2:4] < max_wh)).all(1)
         prediction = prediction[inds]
         bbox = prediction[:, :4]
-        bbox[:, :2] -= bbox[:, 2:] / 2
-        bbox[:, 2:] += bbox[:, :2]
         # cx, cy, w, h --> x1, y1, x2, y2
-        # bbox[..., :2] = bbox[..., :2] - bbox[..., 2:4] * 0.5 + 0.5
-        # bbox[..., 2:4] = bbox[..., :2] + bbox[..., 2:4] - 1
+        bbox[..., :2] = bbox[..., :2] - bbox[..., 2:4] * 0.5 + 0.5
+        bbox[..., 2:4] = bbox[..., :2] + bbox[..., 2:4] - 1
 
         if not prediction.shape[0]:
             return None
@@ -509,7 +507,7 @@ class YOLOV4Head(YOLOV3Head):
         anchor_strides (Iterable): anchor strides.
         conv_cfg (dict): dictionary to construct and config conv layer.
         norm_cfg (dict): dictionary to construct and config norm layer.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
         loss_bbox (dict): Config of localization loss.
         loss_obj (dict): Config of object loss.

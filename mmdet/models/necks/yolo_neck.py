@@ -12,7 +12,7 @@ def make_neck_layer(inplanes,
                     num_blocks,
                     conv_cfg,
                     norm_cfg,
-                    activation_cfg):
+                    act_cfg):
     layers = []
     fuse_conv = ConvModule(
         inplanes,
@@ -22,7 +22,7 @@ def make_neck_layer(inplanes,
         padding=0,
         conv_cfg=conv_cfg,
         norm_cfg=norm_cfg,
-        activation_cfg=activation_cfg
+        act_cfg=act_cfg
     )
     layers.append(fuse_conv)
 
@@ -38,7 +38,7 @@ def make_neck_layer(inplanes,
                 padding=1,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
         )
         layers.append(
@@ -50,7 +50,7 @@ def make_neck_layer(inplanes,
                 padding=0,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
         )
     return nn.Sequential(*layers)
@@ -71,7 +71,7 @@ class YOLONeck(nn.Module):
             when YOLO with pan neck, it is True.
         conv_cfg (dict): dictionary to construct and config conv layer.
         norm_cfg (dict): dictionary to construct and config norm layer.
-        activation_cfg (dict): dictionary to construct
+        act_cfg (dict): dictionary to construct
             and config activation layer.
     """
 
@@ -83,7 +83,7 @@ class YOLONeck(nn.Module):
                  extra_convs_on_inputs=False,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 activation_cfg=dict(type='LeakyReLU', negative_slope=0.1,
+                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
                                      inplace=True),
                  ):
         super(YOLONeck, self).__init__()
@@ -98,7 +98,7 @@ class YOLONeck(nn.Module):
         self.extra_convs_on_inputs = extra_convs_on_inputs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
-        self.activation_cfg = activation_cfg
+        self.act_cfg = act_cfg
 
         self.yolo_lateral_convs = []
         self.yolo_extra_convs = []
@@ -114,7 +114,7 @@ class YOLONeck(nn.Module):
                     padding=0,
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
-                    activation_cfg=activation_cfg
+                    act_cfg=act_cfg
                 )
                 name = 'yolo_lateral_conv{}'.format(i + 1)
                 self.add_module(name, lateral_conv)
@@ -129,7 +129,7 @@ class YOLONeck(nn.Module):
                         padding=0,
                         conv_cfg=conv_cfg,
                         norm_cfg=norm_cfg,
-                        activation_cfg=activation_cfg
+                        act_cfg=act_cfg
                     )
                     name = 'yolo_extra_conv{}'.format(i + 1)
                     self.add_module(name, extra_conv)
@@ -141,7 +141,7 @@ class YOLONeck(nn.Module):
                 num_blocks=num_blocks[i],
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
-                activation_cfg=activation_cfg
+                act_cfg=act_cfg
             )
             name = 'yolo_conv{}'.format(i + 1)
             self.add_module(name, yolo_conv)
@@ -200,7 +200,7 @@ class PANYOLO(YOLONeck):
                 padding=1,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
-                activation_cfg=self.activation_cfg
+                act_cfg=self.act_cfg
             )
             name = 'pan_lateral_conv{}'.format(i + 1)
             self.add_module(name, lateral_conv)
@@ -212,7 +212,7 @@ class PANYOLO(YOLONeck):
                 num_blocks=2,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
-                activation_cfg=self.activation_cfg
+                act_cfg=self.act_cfg
             )
             name = 'pan_conv{}'.format(i + 1)
             self.add_module(name, yolo_conv)

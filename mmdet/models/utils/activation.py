@@ -55,7 +55,7 @@ class Mish(nn.Module):  # https://github.com/digantamisra98/Mish
         return x * F.softplus(x).tanh()
 
 
-activation_cfg = {
+act_cfg = {
     'ReLU': nn.ReLU,
     'LeakyReLU': nn.LeakyReLU,
     'Swish': Swish,
@@ -68,10 +68,10 @@ def build_activation_layer(cfg):
     cfg_ = cfg.copy()
 
     layer_type = cfg_.pop('type')
-    if layer_type not in activation_cfg:
+    if layer_type not in act_cfg:
         raise KeyError('Unrecognized norm type {}'.format(layer_type))
     else:
-        activation = activation_cfg[layer_type]
+        activation = act_cfg[layer_type]
         if activation is None:
             raise NotImplementedError
     layer = activation(**cfg_)

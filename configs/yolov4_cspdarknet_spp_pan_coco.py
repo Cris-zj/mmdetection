@@ -10,7 +10,7 @@ model = dict(
         conv_cfg=None,
         norm_cfg=dict(type='BN', eps=1e-4, momentum=0.03),
         norm_eval=False,
-        activation_cfg=dict(type='Mish')
+        act_cfg=dict(type='Mish')
     ),
     neck=[
         dict(
@@ -23,7 +23,7 @@ model = dict(
             out_pool_size=[5, 9, 13],
             conv_cfg=None,
             norm_cfg=dict(type='BN', eps=1e-4, momentum=0.03),
-            activation_cfg=dict(
+            act_cfg=dict(
                 type='LeakyReLU', negative_slope=0.1, inplace=True)),
         dict(
             type='PANYOLO',
@@ -34,7 +34,7 @@ model = dict(
             extra_convs_on_inputs=True,
             conv_cfg=None,
             norm_cfg=dict(type='BN', eps=1e-4, momentum=0.03),
-            activation_cfg=dict(
+            act_cfg=dict(
                 type='LeakyReLU', negative_slope=0.1, inplace=True))
         ],
     bbox_head=dict(
@@ -48,7 +48,7 @@ model = dict(
         anchor_strides=[8, 16, 32],
         conv_cfg=None,
         norm_cfg=dict(type='BN', eps=1e-4, momentum=0.03),
-        activation_cfg=dict(
+        act_cfg=dict(
             type='LeakyReLU', negative_slope=0.1, inplace=True),
         loss_bbox=dict(
             type='CompleteIoULoss',
@@ -110,7 +110,7 @@ test_pipeline = [
 ]
 data = dict(
     imgs_per_gpu=8,
-    workers_per_gpu=8,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
