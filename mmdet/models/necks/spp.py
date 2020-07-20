@@ -37,8 +37,9 @@ class SPP(nn.Module):
                  out_pool_size,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
-                                     inplace=True)):
+                 act_cfg=dict(type='LeakyReLU',
+                              negative_slope=0.1,
+                              inplace=True)):
         super(SPP, self).__init__()
         self.inplanes = in_channels
         self.layers = []

@@ -20,7 +20,7 @@ def ConvNormActivation(inplanes,
                        conv_cfg=None,
                        norm_cfg=dict(type='BN'),
                        act_cfg=dict(type='LeakyReLU',
-                                           negative_slope=0.1)):
+                                    negative_slope=0.1)):
     layers = []
     layers.append(build_conv_layer(conv_cfg,
                                    inplanes,
@@ -303,7 +303,7 @@ class DarkNet(nn.Module):
                  norm_cfg=dict(type='BN', requires_grad=True),
                  norm_eval=True,
                  act_cfg=dict(type='LeakyReLU',
-                                     negative_slope=0.1, inplace=True),
+                              negative_slope=0.1, inplace=True),
                  with_classifier=False,
                  num_classes=1000):
         super(DarkNet, self).__init__()

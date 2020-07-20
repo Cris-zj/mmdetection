@@ -83,9 +83,9 @@ class YOLONeck(nn.Module):
                  extra_convs_on_inputs=False,
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
-                                     inplace=True),
-                 ):
+                 act_cfg=dict(type='LeakyReLU',
+                              negative_slope=0.1,
+                              inplace=True)):
         super(YOLONeck, self).__init__()
 
         self.num_levels = num_levels

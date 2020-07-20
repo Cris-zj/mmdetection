@@ -88,8 +88,9 @@ class YOLOV3Head(nn.Module):
                  anchor_strides=[8, 16, 32],
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
-                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1,
-                                     inplace=True),
+                 act_cfg=dict(type='LeakyReLU',
+                              negative_slope=0.1,
+                              inplace=True),
                  loss_xy=dict(
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
