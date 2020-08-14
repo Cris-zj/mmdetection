@@ -152,8 +152,8 @@ def load_json_logs(json_logs):
     log_dicts = [dict() for _ in json_logs]
     for json_log, log_dict in zip(json_logs, log_dicts):
         with open(json_log, 'r') as log_file:
-            for l in log_file:
-                log = json.loads(l.strip())
+            for lf in log_file:
+                log = json.loads(lf.strip())
                 epoch = log.pop('epoch')
                 if epoch not in log_dict:
                     log_dict[epoch] = defaultdict(list)
