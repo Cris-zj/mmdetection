@@ -310,14 +310,13 @@ class YOLOV3Head(nn.Module):
         bbox_pred[..., 2:4] = torch.exp(bbox_pred[..., 2:4]) * \
             anchors[..., 2:]
         # cx, cy, w, h --> x1, y1, x2, y2
-        bbox_pred[..., :2] = bbox_pred[..., :2] - \
-            bbox_pred[..., 2:4] * 0.5 + 0.5
-        bbox_pred[..., 2:4] = bbox_pred[..., :2] + bbox_pred[..., 2:4] - 1
+        bbox_pred[..., :2] -= bbox_pred[..., 2:4] * 0.5
+        bbox_pred[..., 2:4] += bbox_pred[..., :2]
 
         gt_bboxes_level = gt_bboxes / stride
         gt_shifts = gt_bboxes_level.clone()
         # x1, y1, x2, y2 --> 0, 0, w, h
-        gt_shifts[..., 2:] = gt_shifts[..., 2:] - gt_shifts[..., :2] + 1
+        gt_shifts[..., 2:] -= gt_shifts[..., :2]
         gt_shifts[..., :2] = 0
 
         overlaps_shifts = bbox_overlaps(
@@ -355,8 +354,8 @@ class YOLOV3Head(nn.Module):
         gt_bboxes_level = gt_bboxes_level[bs_inds, gt_inds]
         cx = (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
         cy = (gt_bboxes_level[..., 1] + gt_bboxes_level[..., 3]) * 0.5
-        w_gt = gt_bboxes_level[..., 2] - gt_bboxes_level[..., 0] + 1
-        h_gt = gt_bboxes_level[..., 3] - gt_bboxes_level[..., 1] + 1
+        w_gt = gt_bboxes_level[..., 2] - gt_bboxes_level[..., 0]
+        h_gt = gt_bboxes_level[..., 3] - gt_bboxes_level[..., 1]
         x_inds = cx.type_as(gt_inds)
         y_inds = cy.type_as(gt_inds)
         targets[bs_inds, anchor_inds, y_inds, x_inds, 0] = cx - x_inds
@@ -439,6 +438,10 @@ class YOLOV3Head(nn.Module):
             x[..., :2] = x[..., :2] * self.anchor_strides[i] + \
                 anchors[..., :2]
             x[..., 2:4] = torch.exp(x[..., 2:4]) * anchors[..., 2:]
+
+            x[..., :2] -= x[..., 2:4] * 0.5
+            x[..., 2:4] += x[..., :2]
+
             torch.sigmoid_(x[..., 4:])
             pred = x.view(-1, x.size()[-1])
             predictions.append(pred)
@@ -464,9 +467,6 @@ class YOLOV3Head(nn.Module):
                 (prediction[:, 2:4] < max_wh)).all(1)
         prediction = prediction[inds]
         bbox = prediction[:, :4]
-        # cx, cy, w, h --> x1, y1, x2, y2
-        bbox[..., :2] = bbox[..., :2] - bbox[..., 2:4] * 0.5 + 0.5
-        bbox[..., 2:4] = bbox[..., :2] + bbox[..., 2:4] - 1
 
         if not prediction.shape[0]:
             return None
@@ -615,13 +615,13 @@ class YOLOV4Head(YOLOV3Head):
         x[..., :2] = x[..., :2] + anchors[..., :2]
         x[..., 2:4] = torch.exp(x[..., 2:4]) * anchors[..., 2:]
         # cx, cy, w, h --> x1, y1, x2, y2
-        x[..., :2] = x[..., :2] - x[..., 2:4] * 0.5 + 0.5
-        x[..., 2:4] = x[..., :2] + x[..., 2:4] - 1
+        x[..., :2] -= x[..., 2:4] * 0.5
+        x[..., 2:4] += x[..., :2]
 
         gt_bboxes_level = gt_bboxes / stride
         gt_shifts = gt_bboxes_level.clone()
         # x1, y1, x2, y2 --> 0, 0, w, h
-        gt_shifts[..., 2:] = gt_shifts[..., 2:] - gt_shifts[..., :2] + 1
+        gt_shifts[..., 2:] -= gt_shifts[..., :2]
         gt_shifts[..., :2] = 0
 
         overlaps_shifts = bbox_overlaps(
