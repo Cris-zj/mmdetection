@@ -278,7 +278,7 @@ class YOLOV3Head(nn.Module):
         for i in range(num_levels):
             anchors = self.anchor_generators[i].grid_anchors(
                 featmap_sizes[i], self.anchor_strides[i]) / \
-                    self.anchor_strides[i]
+                self.anchor_strides[i]
             anchors = anchors.view(
                 1, 3, featmap_sizes[i][0], featmap_sizes[i][1], 4)
             multi_level_anchors.append(anchors)
