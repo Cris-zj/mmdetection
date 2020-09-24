@@ -128,8 +128,8 @@ class YOLOV3Head(nn.Module):
             for i in range(self.num_levels)
         ]
 
-        anchor_shifts_list, multi_level_anchors =
-        self.get_anchors(featmap_sizes)
+        anchor_shifts_list, multi_level_anchors = self.get_anchors(
+            featmap_sizes)
         self.anchor_shifts_list = anchor_shifts_list
         self.multi_level_anchors = multi_level_anchors
 
