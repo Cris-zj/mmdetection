@@ -25,6 +25,7 @@ class YOLOAnchorGenerator(object):
                  base_anchors):
         super(YOLOAnchorGenerator, self).__init__()
         self.base_anchors = torch.Tensor(base_anchors)
+        self.num_anchors = self.base_anchors.size[0]
 
     def _meshgrid(self, x, y, row_major=True):
         xx = x.repeat(len(y))
@@ -44,9 +45,10 @@ class YOLOAnchorGenerator(object):
 
         shifts = torch.stack([shift_xx, shift_yy], dim=-1).view(
             1, feat_h, feat_w, 2)
-        shifts = shifts.type_as(base_anchors).repeat(3, 1, 1, 1)
+        shifts = shifts.type_as(base_anchors).repeat(self.num_anchors, 1, 1, 1)
 
-        bboxpriors = base_anchors.view(3, 1, 1, 2).repeat(1, feat_h, feat_w, 1)
+        bboxpriors = base_anchors.view(
+            self.num_anchors, 1, 1, 2).repeat(1, feat_h, feat_w, 1)
 
         all_anchors = torch.cat([shifts, bboxpriors], dim=-1).view(-1, 4)
         return all_anchors
@@ -118,6 +120,7 @@ class YOLOV3Head(nn.Module):
         self.anchor_generators = []
         for i, anchor in enumerate(anchors):
             self.anchor_generators.append(YOLOAnchorGenerator(anchor))
+        self.num_anchors_per_level = self.anchor_generators[0].num_anchors
         self.anchor_strides = anchor_strides
         featmap_sizes = [
             (int(self.image_size[0] / anchor_strides[i]),
@@ -161,7 +164,8 @@ class YOLOV3Head(nn.Module):
                     act_cfg=self.act_cfg
                 ),
                 nn.Conv2d(self.in_channels[i] * 2,
-                          (self.cls_out_channels + 5) * 3,
+                          (self.cls_out_channels + 5) *
+                          self.num_anchors_per_level,
                           kernel_size=1,
                           stride=1,
                           padding=0)
@@ -193,7 +197,8 @@ class YOLOV3Head(nn.Module):
         """Get bce loss for xy, mse loss for wh, bce loss for obj,
         bce loss for cls.
         The input x, targets, targets_weights have the same shape:
-        (b, 3, h, w, c). And the shape of targets_scale is (b, 3, h, w, 2).
+        (b, n, h, w, c). n means the num of anchors per level.
+        And the shape of targets_scale is (b, n, h, w, 2).
         In details, the last dim c is consist of
         bbox (4: x, y, w, h), obj (1), cls (c - 5).
         """
@@ -280,7 +285,8 @@ class YOLOV3Head(nn.Module):
                 featmap_sizes[i], self.anchor_strides[i]) / \
                 self.anchor_strides[i]
             anchors = anchors.view(
-                1, 3, featmap_sizes[i][0], featmap_sizes[i][1], 4)
+                1, self.anchor_generators[i].num_anchors,
+                featmap_sizes[i][0], featmap_sizes[i][1], 4)
             multi_level_anchors.append(anchors)
             anchor_shifts = self.anchor_generators[i].anchor_shifts()
             multi_level_anchor_shifts.append(anchor_shifts)
@@ -302,7 +308,8 @@ class YOLOV3Head(nn.Module):
                     num_gts_pre_img,
                     cfg):
         b, _, h, w = x.size()
-        x = x.view(b, 3, -1, h, w).permute(0, 1, 3, 4, 2).contiguous()
+        x = x.view(b, self.num_anchors_per_level, -1, h,
+                   w).permute(0, 1, 3, 4, 2).contiguous()
 
         bbox_pred = x[..., :4].data.clone()
         bbox_pred[..., :2] = torch.sigmoid(bbox_pred[..., :2]) + \
@@ -321,12 +328,14 @@ class YOLOV3Head(nn.Module):
 
         overlaps_shifts = bbox_overlaps(
             gt_shifts.reshape(-1, 4), anchor_shifts)
-        inds = overlaps_shifts.reshape(b, num_gts_pre_img, 9).argmax(dim=-1)
-        valid_flags = (inds >= level_index * 3) & \
-            (inds < (level_index + 1) * 3)
+        inds = overlaps_shifts.reshape(
+            b, num_gts_pre_img,
+            self.num_levels * self.num_anchors_per_level).argmax(dim=-1)
+        valid_flags = (inds >= level_index * self.num_anchors_per_level) & \
+            (inds < (level_index + 1) * self.num_anchors_per_level)
         bs_inds, gt_inds = valid_flags.nonzero().t()
         inds = inds[valid_flags]
-        anchor_inds = inds % 3
+        anchor_inds = inds % self.num_anchors_per_level
 
         overlaps_pred = bbox_overlaps(bbox_pred.reshape(-1, 4),
                                       gt_bboxes_level.reshape(-1, 4))
@@ -339,17 +348,18 @@ class YOLOV3Head(nn.Module):
 
         overlaps_pred = torch.stack(overlaps_pred)
         best_match_iou, _ = overlaps_pred.max(dim=-1)
-        best_match_iou = \
-            (best_match_iou.view(b, 3, h, w) > cfg.ignore_thresh)
-        obj_mask = gt_bboxes.new_ones((b, 3, h, w))
+        best_match_iou = (best_match_iou.view(
+            b, self.num_anchors_per_level, h, w) > cfg.ignore_thresh)
+        obj_mask = gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
         obj_mask = ~ best_match_iou
 
         targets = gt_bboxes.new_zeros(
-            (b, 3, h, w, self.cls_out_channels + 5))
+            (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
         targets_weights = gt_bboxes.new_zeros(
-            (b, 3, h, w, self.cls_out_channels + 5))
+            (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
         targets_weights[..., 4] = obj_mask
-        targets_scale = gt_bboxes.new_zeros((b, 3, h, w, 2))
+        targets_scale = gt_bboxes.new_zeros(
+            (b, self.num_anchors_per_level, h, w, 2))
 
         gt_bboxes_level = gt_bboxes_level[bs_inds, gt_inds]
         cx = (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
@@ -428,9 +438,10 @@ class YOLOV3Head(nn.Module):
         predictions = []
         for i, x in enumerate(output):
             _, h, w = x.size()
-            x = x.view(3, -1, h, w).permute(0, 2, 3, 1).contiguous()
+            x = x.view(self.num_anchors_per_level, -1, h,
+                       w).permute(0, 2, 3, 1).contiguous()
 
-            anchors = mlvl_anchors[i].view(3, h, w, 4)
+            anchors = mlvl_anchors[i].view(self.num_anchors_per_level, h, w, 4)
             x[..., :2] = torch.sigmoid(x[..., :2])
             x[..., :2] = x[..., :2] * self.scale_x_y[i] - \
                 (self.scale_x_y[i] - 1) * 0.5
@@ -536,7 +547,8 @@ class YOLOV4Head(YOLOV3Head):
                     num_total_pos):
         """Get iou loss for bbox, bce loss for obj, bce loss for cls.
         The input x, targets, targets_weights have the same shape:
-        (b, 3, h, w, c). In details, the last dim c is consist of
+        (b, n, h, w, c). n means the num of anchors per level.
+        In details, the last dim c is consist of
         bbox (4: x1, y1, x2, y2), obj (1), cls (c - 5).
         """
 
@@ -608,7 +620,8 @@ class YOLOV4Head(YOLOV3Head):
                     num_gts_pre_img,
                     cfg):
         b, _, h, w = x.size()
-        x = x.view(b, 3, -1, h, w).permute(0, 1, 3, 4, 2).contiguous()
+        x = x.view(b, self.num_anchors_per_level, -1, h,
+                   w).permute(0, 1, 3, 4, 2).contiguous()
         x[..., :2] = torch.sigmoid(x[..., :2])
         x[..., :2] = x[..., :2] * scale_x_y - (scale_x_y - 1) * 0.5
 
@@ -627,11 +640,13 @@ class YOLOV4Head(YOLOV3Head):
         overlaps_shifts = bbox_overlaps(
             gt_shifts.reshape(-1, 4), anchor_shifts)
         inds = (overlaps_shifts.reshape(
-            b, num_gts_pre_img, 9) > cfg.iou_thresh).nonzero()
-        valid_flags = (inds[..., 2] >= level_index * 3) & \
-            (inds[..., 2] < (level_index + 1) * 3)
+            b, num_gts_pre_img, self.num_levels *
+            self.num_anchors_per_level) > cfg.iou_thresh).nonzero()
+        valid_flags = \
+            (inds[..., 2] >= level_index * self.num_anchors_per_level) & \
+            (inds[..., 2] < (level_index + 1) * self.num_anchors_per_level)
         inds = inds[valid_flags]
-        inds[..., 2] = inds[..., 2] % 3
+        inds[..., 2] = inds[..., 2] % self.num_anchors_per_level
         del overlaps_shifts
 
         overlaps_pred = bbox_overlaps(x[..., :4].reshape(-1, 4),
@@ -644,15 +659,16 @@ class YOLOV4Head(YOLOV3Head):
         ]
         overlaps_pred = torch.stack(overlaps_pred)
         best_match_iou, _ = overlaps_pred.max(dim=-1)
-        best_match_iou = (best_match_iou.view(b, 3, h, w) > cfg.ignore_thresh)
-        obj_mask = gt_bboxes.new_ones((b, 3, h, w))
+        best_match_iou = (best_match_iou.view(
+            b, self.num_anchors_per_level, h, w) > cfg.ignore_thresh)
+        obj_mask = gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
         obj_mask = ~ best_match_iou
         del overlaps_pred
 
         targets = gt_bboxes.new_zeros(
-            (b, 3, h, w, self.cls_out_channels + 5))
+            (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
         targets_weights = gt_bboxes.new_zeros(
-            (b, 3, h, w, self.cls_out_channels + 5))
+            (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
         targets_weights[..., 4] = obj_mask
 
         bs_inds, gt_inds, anchor_inds = inds.t()
