@@ -25,7 +25,7 @@ class YOLOAnchorGenerator(object):
                  base_anchors):
         super(YOLOAnchorGenerator, self).__init__()
         self.base_anchors = torch.Tensor(base_anchors)
-        self.num_anchors = self.base_anchors.size[0]
+        self.num_anchors = self.base_anchors.size(0)
 
     def _meshgrid(self, x, y, row_major=True):
         xx = x.repeat(len(y))
@@ -60,7 +60,7 @@ class YOLOAnchorGenerator(object):
         return anchor_shifts
 
 
-@HEADS.register_module
+@ HEADS.register_module
 class YOLOV3Head(nn.Module):
     """YOLOV3 Head
 
@@ -128,8 +128,8 @@ class YOLOV3Head(nn.Module):
             for i in range(self.num_levels)
         ]
 
-        anchor_shifts_list, multi_level_anchors = \
-            self.get_anchors(featmap_sizes)
+        anchor_shifts_list, multi_level_anchors = self.get_anchors(
+            featmap_sizes)
         self.anchor_shifts_list = anchor_shifts_list
         self.multi_level_anchors = multi_level_anchors
 
@@ -474,8 +474,8 @@ class YOLOV3Head(nn.Module):
     def yolo_nms(self, prediction, conf_thres=0.001, nms_thres=0.6):
         min_wh, max_wh = 2, 4096
         inds = (prediction[:, 4] > conf_thres) & \
-               ((prediction[:, 2:4] > min_wh) &
-                (prediction[:, 2:4] < max_wh)).all(1)
+            ((prediction[:, 2:4] > min_wh) &
+             (prediction[:, 2:4] < max_wh)).all(1)
         prediction = prediction[inds]
         bbox = prediction[:, :4]
 
@@ -508,7 +508,7 @@ class YOLOV3Head(nn.Module):
         return det_bboxes[inds]
 
 
-@HEADS.register_module
+@ HEADS.register_module
 class YOLOV4Head(YOLOV3Head):
     """YOLO Head
 
