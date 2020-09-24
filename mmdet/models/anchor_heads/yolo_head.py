@@ -161,7 +161,7 @@ class YOLOV3Head(nn.Module):
                     act_cfg=self.act_cfg
                 ),
                 nn.Conv2d(self.in_channels[i] * 2,
-                          (self.num_classes - 1 + 5) * 3,
+                          (self.cls_out_channels + 5) * 3,
                           kernel_size=1,
                           stride=1,
                           padding=0)
