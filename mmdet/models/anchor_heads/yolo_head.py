@@ -25,38 +25,38 @@ class YOLOAnchorGenerator(object):
                  base_anchors):
         super(YOLOAnchorGenerator, self).__init__()
         self.base_anchors = torch.Tensor(base_anchors)
-        self.num_anchors = self.base_anchors.size[(0)
+        self.num_anchors = self.base_anchors.size(0)
 
     def _meshgrid(self, x, y, row_major=True):
-        xx= x.repeat(len(y))
-        yy= y.view(-1, 1).repeat(1, len(x)).view(-1)
+        xx = x.repeat(len(y))
+        yy = y.view(-1, 1).repeat(1, len(x)).view(-1)
         if row_major:
             return xx, yy
         else:
             return yy, xx
 
     def grid_anchors(self, featmap_size, stride, device='cuda'):
-        base_anchors= self.base_anchors.to(device)
+        base_anchors = self.base_anchors.to(device)
 
-        feat_h, feat_w= featmap_size
-        shift_x= torch.arange(0., feat_w, device=device) * stride
-        shift_y= torch.arange(0., feat_h, device=device) * stride
-        shift_xx, shift_yy= self._meshgrid(shift_x, shift_y)
+        feat_h, feat_w = featmap_size
+        shift_x = torch.arange(0., feat_w, device=device) * stride
+        shift_y = torch.arange(0., feat_h, device=device) * stride
+        shift_xx, shift_yy = self._meshgrid(shift_x, shift_y)
 
-        shifts= torch.stack([shift_xx, shift_yy], dim=-1).view(
+        shifts = torch.stack([shift_xx, shift_yy], dim=-1).view(
             1, feat_h, feat_w, 2)
-        shifts= shifts.type_as(base_anchors).repeat(self.num_anchors, 1, 1, 1)
+        shifts = shifts.type_as(base_anchors).repeat(self.num_anchors, 1, 1, 1)
 
-        bboxpriors= base_anchors.view(
+        bboxpriors = base_anchors.view(
             self.num_anchors, 1, 1, 2).repeat(1, feat_h, feat_w, 1)
 
-        all_anchors= torch.cat([shifts, bboxpriors], dim=-1).view(-1, 4)
+        all_anchors = torch.cat([shifts, bboxpriors], dim=-1).view(-1, 4)
         return all_anchors
 
     def anchor_shifts(self, device='cuda'):
-        base_anchors= self.base_anchors.to(device)
-        anchor_shifts= base_anchors.new_zeros((base_anchors.shape[0], 4))
-        anchor_shifts[:, 2:]= base_anchors
+        base_anchors = self.base_anchors.to(device)
+        anchor_shifts = base_anchors.new_zeros((base_anchors.shape[0], 4))
+        anchor_shifts[:, 2:] = base_anchors
         return anchor_shifts
 
 
@@ -110,49 +110,49 @@ class YOLOV3Head(nn.Module):
                      use_sigmoid=True,
                      loss_weight=1.0)):
         super(YOLOV3Head, self).__init__()
-        self.num_classes= num_classes
-        self.scale_x_y= scale_x_y
-        self.image_size= image_size
+        self.num_classes = num_classes
+        self.scale_x_y = scale_x_y
+        self.image_size = image_size
         assert len(in_channels) == len(anchors)
-        self.num_levels= len(in_channels)
-        self.in_channels= in_channels
+        self.num_levels = len(in_channels)
+        self.in_channels = in_channels
 
-        self.anchor_generators= []
+        self.anchor_generators = []
         for i, anchor in enumerate(anchors):
             self.anchor_generators.append(YOLOAnchorGenerator(anchor))
-        self.num_anchors_per_level= self.anchor_generators[0].num_anchors
-        self.anchor_strides= anchor_strides
-        featmap_sizes= [
+        self.num_anchors_per_level = self.anchor_generators[0].num_anchors
+        self.anchor_strides = anchor_strides
+        featmap_sizes = [
             (int(self.image_size[0] / anchor_strides[i]),
              int(self.image_size[1] / anchor_strides[i]))
             for i in range(self.num_levels)
         ]
 
         anchor_shifts_list, multi_level_anchors =
-            self.get_anchors(featmap_sizes)
-        self.anchor_shifts_list= anchor_shifts_list
-        self.multi_level_anchors= multi_level_anchors
+        self.get_anchors(featmap_sizes)
+        self.anchor_shifts_list = anchor_shifts_list
+        self.multi_level_anchors = multi_level_anchors
 
-        self.conv_cfg= conv_cfg
-        self.norm_cfg= norm_cfg
-        self.act_cfg= act_cfg
+        self.conv_cfg = conv_cfg
+        self.norm_cfg = norm_cfg
+        self.act_cfg = act_cfg
 
-        self.use_sigmoid_cls= loss_cls.get('use_sigmoid', False)
+        self.use_sigmoid_cls = loss_cls.get('use_sigmoid', False)
         if self.use_sigmoid_cls:
-            self.cls_out_channels= num_classes - 1
+            self.cls_out_channels = num_classes - 1
         else:
-            self.cls_out_channels= num_classes
-        self.loss_xy= build_loss(loss_xy)
-        self.loss_wh= build_loss(loss_wh)
-        self.loss_obj= build_loss(loss_obj)
-        self.loss_cls= build_loss(loss_cls)
+            self.cls_out_channels = num_classes
+        self.loss_xy = build_loss(loss_xy)
+        self.loss_wh = build_loss(loss_wh)
+        self.loss_obj = build_loss(loss_obj)
+        self.loss_cls = build_loss(loss_cls)
 
         self._init_layers()
 
     def _init_layers(self):
-        self.yolo_heads= []
+        self.yolo_heads = []
         for i in range(self.num_levels):
-            head_layer= nn.Sequential(
+            head_layer = nn.Sequential(
                 ConvModule(
                     in_channels=self.in_channels[i],
                     out_channels=self.in_channels[i] * 2,
@@ -170,7 +170,7 @@ class YOLOV3Head(nn.Module):
                           stride=1,
                           padding=0)
             )
-            name= 'yolo_head{}'.format(i + 1)
+            name = 'yolo_head{}'.format(i + 1)
             self.add_module(name, head_layer)
             self.yolo_heads.append(name)
 
@@ -182,9 +182,9 @@ class YOLOV3Head(nn.Module):
                 constant_init(m, 1)
 
     def forward(self, x):
-        head_outs= []
+        head_outs = []
         for i in range(self.num_levels):
-            head_layer= getattr(self, self.yolo_heads[i])
+            head_layer = getattr(self, self.yolo_heads[i])
             head_outs.append(head_layer(x[i]))
         return (head_outs,)
 
@@ -203,25 +203,25 @@ class YOLOV3Head(nn.Module):
         bbox (4: x, y, w, h), obj (1), cls (c - 5).
         """
 
-        x[..., 2:4]= x[..., 2:4] * targets_scale
-        targets[..., 2:4]= targets[..., 2:4] * targets_scale
+        x[..., 2:4] = x[..., 2:4] * targets_scale
+        targets[..., 2:4] = targets[..., 2:4] * targets_scale
 
-        loss_xy= self.loss_xy(
+        loss_xy = self.loss_xy(
             x[..., :2],
             targets[..., :2],
             weight=targets_scale * targets_scale,
             avg_factor=num_total_pos)
-        loss_wh= self.loss_wh(
+        loss_wh = self.loss_wh(
             x[..., 2:4],
             targets[..., 2:4],
             weight=targets_weights[..., 2:4],
             avg_factor=num_total_pos * 2)
-        loss_obj= self.loss_obj(
+        loss_obj = self.loss_obj(
             x[..., 4],
             targets[..., 4],
             weight=targets_weights[..., 4],
             avg_factor=num_total_pos)
-        loss_cls= self.loss_cls(
+        loss_cls = self.loss_cls(
             x[..., 5:],
             targets[..., 5:],
             weight=targets_weights[..., 5:],
@@ -236,18 +236,18 @@ class YOLOV3Head(nn.Module):
              cfg,
              gt_bboxes_ignore=None):
 
-        batch_size= len(gt_bboxes)
+        batch_size = len(gt_bboxes)
         # max_num_gts = max([gt_bboxes[i].shape[0] for i in range(batch_size)])
-        max_num_gts= 70
-        gt_bboxes_list= gt_bboxes[0].new_zeros((batch_size, max_num_gts, 4))
-        gt_labels_list= gt_labels[0].new_zeros((batch_size, max_num_gts))
+        max_num_gts = 70
+        gt_bboxes_list = gt_bboxes[0].new_zeros((batch_size, max_num_gts, 4))
+        gt_labels_list = gt_labels[0].new_zeros((batch_size, max_num_gts))
         for i in range(batch_size):
-            num_gts= gt_bboxes[i].shape[0]
-            gt_bboxes_list[i, :num_gts]= gt_bboxes[i]
-            gt_labels_list[i, :num_gts]= gt_labels[i] \
+            num_gts = gt_bboxes[i].shape[0]
+            gt_bboxes_list[i, :num_gts] = gt_bboxes[i]
+            gt_labels_list[i, :num_gts] = gt_labels[i] \
                 if not self.use_sigmoid_cls else gt_labels[i] - 1
 
-        losses_xy, losses_wh, losses_obj, losses_cls= multi_apply(
+        losses_xy, losses_wh, losses_obj, losses_cls = multi_apply(
             self.get_targets,
             head_outs,
             self.multi_level_anchors,
@@ -274,24 +274,24 @@ class YOLOV3Head(nn.Module):
         Returns:
             list: anchors (wh) of each image, anchors of each level
         """
-        num_levels= len(featmap_sizes)
+        num_levels = len(featmap_sizes)
 
         # since feature map sizes of all images are the same, we only compute
         # anchors for one time
-        multi_level_anchors= []
-        multi_level_anchor_shifts= []
+        multi_level_anchors = []
+        multi_level_anchor_shifts = []
         for i in range(num_levels):
-            anchors= self.anchor_generators[i].grid_anchors(
+            anchors = self.anchor_generators[i].grid_anchors(
                 featmap_sizes[i], self.anchor_strides[i]) / \
                 self.anchor_strides[i]
-            anchors= anchors.view(
+            anchors = anchors.view(
                 1, self.anchor_generators[i].num_anchors,
                 featmap_sizes[i][0], featmap_sizes[i][1], 4)
             multi_level_anchors.append(anchors)
-            anchor_shifts= self.anchor_generators[i].anchor_shifts()
+            anchor_shifts = self.anchor_generators[i].anchor_shifts()
             multi_level_anchor_shifts.append(anchor_shifts)
-        multi_level_anchor_shifts= torch.cat(multi_level_anchor_shifts)
-        anchor_shifts= []
+        multi_level_anchor_shifts = torch.cat(multi_level_anchor_shifts)
+        anchor_shifts = []
         for i in range(num_levels):
             anchor_shifts.append(
                 multi_level_anchor_shifts / self.anchor_strides[i])
@@ -307,83 +307,83 @@ class YOLOV3Head(nn.Module):
                     gt_labels,
                     num_gts_pre_img,
                     cfg):
-        b, _, h, w= x.size()
-        x= x.view(b, self.num_anchors_per_level, -1, h,
+        b, _, h, w = x.size()
+        x = x.view(b, self.num_anchors_per_level, -1, h,
                    w).permute(0, 1, 3, 4, 2).contiguous()
 
-        bbox_pred= x[..., :4].data.clone()
-        bbox_pred[..., :2]= torch.sigmoid(bbox_pred[..., :2]) + \
+        bbox_pred = x[..., :4].data.clone()
+        bbox_pred[..., :2] = torch.sigmoid(bbox_pred[..., :2]) + \
             anchors[..., :2]
-        bbox_pred[..., 2:4]= torch.exp(bbox_pred[..., 2:4]) * \
+        bbox_pred[..., 2:4] = torch.exp(bbox_pred[..., 2:4]) * \
             anchors[..., 2:]
         # cx, cy, w, h --> x1, y1, x2, y2
         bbox_pred[..., :2] -= bbox_pred[..., 2:4] * 0.5
         bbox_pred[..., 2:4] += bbox_pred[..., :2]
 
-        gt_bboxes_level= gt_bboxes / stride
-        gt_shifts= gt_bboxes_level.clone()
+        gt_bboxes_level = gt_bboxes / stride
+        gt_shifts = gt_bboxes_level.clone()
         # x1, y1, x2, y2 --> 0, 0, w, h
         gt_shifts[..., 2:] -= gt_shifts[..., :2]
-        gt_shifts[..., :2]= 0
+        gt_shifts[..., :2] = 0
 
-        overlaps_shifts= bbox_overlaps(
+        overlaps_shifts = bbox_overlaps(
             gt_shifts.reshape(-1, 4), anchor_shifts)
-        inds= overlaps_shifts.reshape(
+        inds = overlaps_shifts.reshape(
             b, num_gts_pre_img,
             self.num_levels * self.num_anchors_per_level).argmax(dim=-1)
-        valid_flags= (inds >= level_index * self.num_anchors_per_level) & \
+        valid_flags = (inds >= level_index * self.num_anchors_per_level) & \
             (inds < (level_index + 1) * self.num_anchors_per_level)
-        bs_inds, gt_inds= valid_flags.nonzero().t()
-        inds= inds[valid_flags]
-        anchor_inds= inds % self.num_anchors_per_level
+        bs_inds, gt_inds = valid_flags.nonzero().t()
+        inds = inds[valid_flags]
+        anchor_inds = inds % self.num_anchors_per_level
 
-        overlaps_pred= bbox_overlaps(bbox_pred.reshape(-1, 4),
+        overlaps_pred = bbox_overlaps(bbox_pred.reshape(-1, 4),
                                       gt_bboxes_level.reshape(-1, 4))
-        num_overlaps_pre_img= overlaps_pred.shape[0] // b
-        overlaps_pred= [overlaps_pred[
+        num_overlaps_pre_img = overlaps_pred.shape[0] // b
+        overlaps_pred = [overlaps_pred[
             i * num_overlaps_pre_img: (i + 1) * num_overlaps_pre_img,
             i * num_gts_pre_img: (i + 1) * num_gts_pre_img]
             for i in range(b)
         ]
 
-        overlaps_pred= torch.stack(overlaps_pred)
-        best_match_iou, _= overlaps_pred.max(dim=-1)
-        best_match_iou= (best_match_iou.view(
+        overlaps_pred = torch.stack(overlaps_pred)
+        best_match_iou, _ = overlaps_pred.max(dim=-1)
+        best_match_iou = (best_match_iou.view(
             b, self.num_anchors_per_level, h, w) > cfg.ignore_thresh)
-        obj_mask= gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
-        obj_mask= ~ best_match_iou
+        obj_mask = gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
+        obj_mask = ~ best_match_iou
 
-        targets= gt_bboxes.new_zeros(
+        targets = gt_bboxes.new_zeros(
             (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
-        targets_weights= gt_bboxes.new_zeros(
+        targets_weights = gt_bboxes.new_zeros(
             (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
-        targets_weights[..., 4]= obj_mask
-        targets_scale= gt_bboxes.new_zeros(
+        targets_weights[..., 4] = obj_mask
+        targets_scale = gt_bboxes.new_zeros(
             (b, self.num_anchors_per_level, h, w, 2))
 
-        gt_bboxes_level= gt_bboxes_level[bs_inds, gt_inds]
-        cx= (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
-        cy= (gt_bboxes_level[..., 1] + gt_bboxes_level[..., 3]) * 0.5
-        w_gt= gt_bboxes_level[..., 2] - gt_bboxes_level[..., 0]
-        h_gt= gt_bboxes_level[..., 3] - gt_bboxes_level[..., 1]
-        x_inds= cx.type_as(gt_inds)
-        y_inds= cy.type_as(gt_inds)
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 0]= cx - x_inds
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 1]= cy - y_inds
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 2]= \
+        gt_bboxes_level = gt_bboxes_level[bs_inds, gt_inds]
+        cx = (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
+        cy = (gt_bboxes_level[..., 1] + gt_bboxes_level[..., 3]) * 0.5
+        w_gt = gt_bboxes_level[..., 2] - gt_bboxes_level[..., 0]
+        h_gt = gt_bboxes_level[..., 3] - gt_bboxes_level[..., 1]
+        x_inds = cx.type_as(gt_inds)
+        y_inds = cy.type_as(gt_inds)
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 0] = cx - x_inds
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 1] = cy - y_inds
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 2] = \
             torch.log(w_gt / anchor_shifts[inds, 2] + 1e-16)
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 3]= \
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 3] = \
             torch.log(h_gt / anchor_shifts[inds, 3] + 1e-16)
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 4]= 1
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 4] = 1
         targets[bs_inds, anchor_inds, y_inds, x_inds,
-                5 + gt_labels[bs_inds, gt_inds]]= 1
-        targets_weights[bs_inds, anchor_inds, y_inds, x_inds]= 1
-        targets_scale[bs_inds, anchor_inds, y_inds, x_inds, 0]= \
+                5 + gt_labels[bs_inds, gt_inds]] = 1
+        targets_weights[bs_inds, anchor_inds, y_inds, x_inds] = 1
+        targets_scale[bs_inds, anchor_inds, y_inds, x_inds, 0] = \
             torch.sqrt(2 - w_gt * h_gt / w / h)
-        targets_scale[bs_inds, anchor_inds, y_inds, x_inds, 1]= \
+        targets_scale[bs_inds, anchor_inds, y_inds, x_inds, 1] = \
             torch.sqrt(2 - w_gt * h_gt / w / h)
 
-        num_total_pos= inds.shape[0]
+        num_total_pos = inds.shape[0]
 
         return self.loss_single(x,
                                 targets,
@@ -393,17 +393,17 @@ class YOLOV3Head(nn.Module):
 
     def get_bboxes(self, head_outs, img_metas, cfg,
                    rescale=False):
-        num_levels= len(head_outs)
-        mlvl_anchors= self.get_mlvl_anchors(head_outs, num_levels)
+        num_levels = len(head_outs)
+        mlvl_anchors = self.get_mlvl_anchors(head_outs, num_levels)
 
-        result_list= []
+        result_list = []
         for img_id in range(len(img_metas)):
-            single_output= self.get_image_outs(head_outs,
+            single_output = self.get_image_outs(head_outs,
                                                 num_levels,
                                                 img_idx=img_id)
-            img_shape= img_metas[img_id]['img_shape']
-            scale_factor= img_metas[img_id]['scale_factor']
-            single_result= self.get_bboxes_single(single_output,
+            img_shape = img_metas[img_id]['img_shape']
+            scale_factor = img_metas[img_id]['scale_factor']
+            single_result = self.get_bboxes_single(single_output,
                                                    mlvl_anchors,
                                                    img_shape,
                                                    scale_factor,
@@ -413,7 +413,7 @@ class YOLOV3Head(nn.Module):
         return result_list
 
     def get_mlvl_anchors(self, output, num_levels):
-        mlvl_anchors= [
+        mlvl_anchors = [
             self.anchor_generators[i].grid_anchors(output[i].size()[-2:],
                                                    self.anchor_strides[i])
             for i in range(num_levels)
@@ -421,7 +421,7 @@ class YOLOV3Head(nn.Module):
         return mlvl_anchors
 
     def get_image_outs(self, output, num_levels, img_idx=0):
-        output_list= [
+        output_list = [
             output[i][img_idx].detach() for i in range(num_levels)
         ]
         return output_list
@@ -435,30 +435,30 @@ class YOLOV3Head(nn.Module):
                           rescale=False):
         assert len(output) == len(mlvl_anchors)
 
-        predictions= []
+        predictions = []
         for i, x in enumerate(output):
-            _, h, w= x.size()
-            x= x.view(self.num_anchors_per_level, -1, h,
+            _, h, w = x.size()
+            x = x.view(self.num_anchors_per_level, -1, h,
                        w).permute(0, 2, 3, 1).contiguous()
 
-            anchors= mlvl_anchors[i].view(self.num_anchors_per_level, h, w, 4)
-            x[..., :2]= torch.sigmoid(x[..., :2])
-            x[..., :2]= x[..., :2] * self.scale_x_y[i] - \
+            anchors = mlvl_anchors[i].view(self.num_anchors_per_level, h, w, 4)
+            x[..., :2] = torch.sigmoid(x[..., :2])
+            x[..., :2] = x[..., :2] * self.scale_x_y[i] - \
                 (self.scale_x_y[i] - 1) * 0.5
 
-            x[..., :2]= x[..., :2] * self.anchor_strides[i] + \
+            x[..., :2] = x[..., :2] * self.anchor_strides[i] + \
                 anchors[..., :2]
-            x[..., 2:4]= torch.exp(x[..., 2:4]) * anchors[..., 2:]
+            x[..., 2:4] = torch.exp(x[..., 2:4]) * anchors[..., 2:]
 
             x[..., :2] -= x[..., 2:4] * 0.5
             x[..., 2:4] += x[..., :2]
 
             torch.sigmoid_(x[..., 4:])
-            pred= x.view(-1, x.size()[-1])
+            pred = x.view(-1, x.size()[-1])
             predictions.append(pred)
-        predictions= torch.cat(predictions, dim=0)
+        predictions = torch.cat(predictions, dim=0)
 
-        dets= self.yolo_nms(predictions,
+        dets = self.yolo_nms(predictions,
                              conf_thres=cfg.score_thr,
                              nms_thres=cfg.nms.iou_thr)
         if dets is not None:
@@ -472,37 +472,37 @@ class YOLOV3Head(nn.Module):
             return torch.Tensor([]), torch.Tensor([])
 
     def yolo_nms(self, prediction, conf_thres=0.001, nms_thres=0.6):
-        min_wh, max_wh= 2, 4096
-        inds= (prediction[:, 4] > conf_thres) & \
-               ((prediction[:, 2:4] > min_wh) &
-                (prediction[:, 2:4] < max_wh)).all(1)
-        prediction= prediction[inds]
-        bbox= prediction[:, :4]
+        min_wh, max_wh = 2, 4096
+        inds = (prediction[:, 4] > conf_thres) & \
+            ((prediction[:, 2:4] > min_wh) &
+             (prediction[:, 2:4] < max_wh)).all(1)
+        prediction = prediction[inds]
+        bbox = prediction[:, :4]
 
         if not prediction.shape[0]:
             return None
 
         prediction[..., 5:] *= prediction[..., 4:5]
-        valid_inds, cls_ids= (prediction[:, 5:] > conf_thres).nonzero().t()
-        det_bboxes= torch.cat(
+        valid_inds, cls_ids = (prediction[:, 5:] > conf_thres).nonzero().t()
+        det_bboxes = torch.cat(
             (bbox[valid_inds],
              prediction[valid_inds, cls_ids + 5].unsqueeze(1),
              cls_ids.float().unsqueeze(1)), dim=1)
 
-        inds= torch.isfinite(det_bboxes).all(1)
-        det_bboxes= det_bboxes[inds]
+        inds = torch.isfinite(det_bboxes).all(1)
+        det_bboxes = det_bboxes[inds]
 
         if not det_bboxes.shape[0]:
             return None
 
-        boxes= det_bboxes[:, :4].clone() + \
+        boxes = det_bboxes[:, :4].clone() + \
             det_bboxes[:, 5].view(-1, 1) * max_wh
-        scores= det_bboxes[:, 4]
+        scores = det_bboxes[:, 4]
 
-        _, inds= nms(torch.cat((boxes, scores.view(-1, 1)), 1), nms_thres)
-        weights= (bbox_overlaps(boxes[inds], boxes) > nms_thres) * \
+        _, inds = nms(torch.cat((boxes, scores.view(-1, 1)), 1), nms_thres)
+        weights = (bbox_overlaps(boxes[inds], boxes) > nms_thres) * \
             scores[None]
-        det_bboxes[inds, :4]= torch.mm(weights, det_bboxes[:, :4]).float() / \
+        det_bboxes[inds, :4] = torch.mm(weights, det_bboxes[:, :4]).float() / \
             weights.sum(1, keepdim=True)
 
         return det_bboxes[inds]
@@ -535,7 +535,7 @@ class YOLOV4Head(YOLOV3Head):
                      loss_weight=1.0),
                  **kwargs):
         super(YOLOV4Head, self).__init__(num_classes, **kwargs)
-        self.loss_bbox= build_loss(loss_bbox)
+        self.loss_bbox = build_loss(loss_bbox)
 
     def init_weights(self):
         super(YOLOV4Head, self).init_weights()
@@ -552,17 +552,17 @@ class YOLOV4Head(YOLOV3Head):
         bbox (4: x1, y1, x2, y2), obj (1), cls (c - 5).
         """
 
-        loss_bbox= self.loss_bbox(
+        loss_bbox = self.loss_bbox(
             x[..., :4].reshape(-1, 4),
             targets[..., :4].reshape(-1, 4),
             weight=targets_weights[..., 1].reshape(-1),
             avg_factor=num_total_pos)
-        loss_obj= self.loss_obj(
+        loss_obj = self.loss_obj(
             x[..., 4],
             targets[..., 4],
             weight=targets_weights[..., 4],
             avg_factor=num_total_pos)
-        loss_cls= self.loss_cls(
+        loss_cls = self.loss_cls(
             x[..., 5:],
             targets[..., 5:],
             weight=targets_weights[..., 5:],
@@ -577,18 +577,18 @@ class YOLOV4Head(YOLOV3Head):
              cfg,
              gt_bboxes_ignore=None):
 
-        batch_size= len(gt_bboxes)
+        batch_size = len(gt_bboxes)
         # max_num_gts = max([gt_bboxes[i].shape[0] for i in range(batch_size)])
-        max_num_gts= 70
-        gt_bboxes_list= gt_bboxes[0].new_zeros((batch_size, max_num_gts, 4))
-        gt_labels_list= gt_labels[0].new_zeros((batch_size, max_num_gts))
+        max_num_gts = 70
+        gt_bboxes_list = gt_bboxes[0].new_zeros((batch_size, max_num_gts, 4))
+        gt_labels_list = gt_labels[0].new_zeros((batch_size, max_num_gts))
         for i in range(batch_size):
-            num_gts= min(gt_bboxes[i].shape[0], max_num_gts)
-            gt_bboxes_list[i, :num_gts]= gt_bboxes[i][:num_gts]
-            gt_labels_list[i, :num_gts]= gt_labels[i][:num_gts] \
+            num_gts = min(gt_bboxes[i].shape[0], max_num_gts)
+            gt_bboxes_list[i, :num_gts] = gt_bboxes[i][:num_gts]
+            gt_labels_list[i, :num_gts] = gt_labels[i][:num_gts] \
                 if not self.use_sigmoid_cls else gt_labels[i][:num_gts] - 1
 
-        losses_bbox, losses_obj, losses_cls= multi_apply(
+        losses_bbox, losses_obj, losses_cls = multi_apply(
             self.get_targets,
             head_outs,
             self.scale_x_y,
@@ -619,71 +619,71 @@ class YOLOV4Head(YOLOV3Head):
                     gt_labels,
                     num_gts_pre_img,
                     cfg):
-        b, _, h, w= x.size()
-        x= x.view(b, self.num_anchors_per_level, -1, h,
+        b, _, h, w = x.size()
+        x = x.view(b, self.num_anchors_per_level, -1, h,
                    w).permute(0, 1, 3, 4, 2).contiguous()
-        x[..., :2]= torch.sigmoid(x[..., :2])
-        x[..., :2]= x[..., :2] * scale_x_y - (scale_x_y - 1) * 0.5
+        x[..., :2] = torch.sigmoid(x[..., :2])
+        x[..., :2] = x[..., :2] * scale_x_y - (scale_x_y - 1) * 0.5
 
-        x[..., :2]= x[..., :2] + anchors[..., :2]
-        x[..., 2:4]= torch.exp(x[..., 2:4]) * anchors[..., 2:]
+        x[..., :2] = x[..., :2] + anchors[..., :2]
+        x[..., 2:4] = torch.exp(x[..., 2:4]) * anchors[..., 2:]
         # cx, cy, w, h --> x1, y1, x2, y2
         x[..., :2] -= x[..., 2:4] * 0.5
         x[..., 2:4] += x[..., :2]
 
-        gt_bboxes_level= gt_bboxes / stride
-        gt_shifts= gt_bboxes_level.clone()
+        gt_bboxes_level = gt_bboxes / stride
+        gt_shifts = gt_bboxes_level.clone()
         # x1, y1, x2, y2 --> 0, 0, w, h
         gt_shifts[..., 2:] -= gt_shifts[..., :2]
-        gt_shifts[..., :2]= 0
+        gt_shifts[..., :2] = 0
 
-        overlaps_shifts= bbox_overlaps(
+        overlaps_shifts = bbox_overlaps(
             gt_shifts.reshape(-1, 4), anchor_shifts)
-        inds= (overlaps_shifts.reshape(
+        inds = (overlaps_shifts.reshape(
             b, num_gts_pre_img, self.num_levels *
             self.num_anchors_per_level) > cfg.iou_thresh).nonzero()
-        valid_flags= \
+        valid_flags = \
             (inds[..., 2] >= level_index * self.num_anchors_per_level) & \
             (inds[..., 2] < (level_index + 1) * self.num_anchors_per_level)
-        inds= inds[valid_flags]
-        inds[..., 2]= inds[..., 2] % self.num_anchors_per_level
+        inds = inds[valid_flags]
+        inds[..., 2] = inds[..., 2] % self.num_anchors_per_level
         del overlaps_shifts
 
-        overlaps_pred= bbox_overlaps(x[..., :4].reshape(-1, 4),
+        overlaps_pred = bbox_overlaps(x[..., :4].reshape(-1, 4),
                                       gt_bboxes_level.reshape(-1, 4))
-        num_overlaps_pre_img= overlaps_pred.shape[0] // b
-        overlaps_pred= [overlaps_pred[
+        num_overlaps_pre_img = overlaps_pred.shape[0] // b
+        overlaps_pred = [overlaps_pred[
             i * num_overlaps_pre_img: (i + 1) * num_overlaps_pre_img,
             i * num_gts_pre_img: (i + 1) * num_gts_pre_img]
             for i in range(b)
         ]
-        overlaps_pred= torch.stack(overlaps_pred)
-        best_match_iou, _= overlaps_pred.max(dim=-1)
-        best_match_iou= (best_match_iou.view(
+        overlaps_pred = torch.stack(overlaps_pred)
+        best_match_iou, _ = overlaps_pred.max(dim=-1)
+        best_match_iou = (best_match_iou.view(
             b, self.num_anchors_per_level, h, w) > cfg.ignore_thresh)
-        obj_mask= gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
-        obj_mask= ~ best_match_iou
+        obj_mask = gt_bboxes.new_ones((b, self.num_anchors_per_level, h, w))
+        obj_mask = ~ best_match_iou
         del overlaps_pred
 
-        targets= gt_bboxes.new_zeros(
+        targets = gt_bboxes.new_zeros(
             (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
-        targets_weights= gt_bboxes.new_zeros(
+        targets_weights = gt_bboxes.new_zeros(
             (b, self.num_anchors_per_level, h, w, self.cls_out_channels + 5))
-        targets_weights[..., 4]= obj_mask
+        targets_weights[..., 4] = obj_mask
 
-        bs_inds, gt_inds, anchor_inds= inds.t()
-        gt_bboxes_level= gt_bboxes_level[bs_inds, gt_inds]
-        cx= (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
-        cy= (gt_bboxes_level[..., 1] + gt_bboxes_level[..., 3]) * 0.5
-        x_inds= cx.type_as(gt_inds)
-        y_inds= cy.type_as(gt_inds)
-        targets[bs_inds, anchor_inds, y_inds, x_inds, :4]= gt_bboxes_level
-        targets[bs_inds, anchor_inds, y_inds, x_inds, 4]= 1
+        bs_inds, gt_inds, anchor_inds = inds.t()
+        gt_bboxes_level = gt_bboxes_level[bs_inds, gt_inds]
+        cx = (gt_bboxes_level[..., 0] + gt_bboxes_level[..., 2]) * 0.5
+        cy = (gt_bboxes_level[..., 1] + gt_bboxes_level[..., 3]) * 0.5
+        x_inds = cx.type_as(gt_inds)
+        y_inds = cy.type_as(gt_inds)
+        targets[bs_inds, anchor_inds, y_inds, x_inds, :4] = gt_bboxes_level
+        targets[bs_inds, anchor_inds, y_inds, x_inds, 4] = 1
         targets[bs_inds, anchor_inds, y_inds, x_inds,
-                5 + gt_labels[bs_inds, gt_inds]]= 1
-        targets_weights[bs_inds, anchor_inds, y_inds, x_inds]= 1
+                5 + gt_labels[bs_inds, gt_inds]] = 1
+        targets_weights[bs_inds, anchor_inds, y_inds, x_inds] = 1
 
-        num_total_pos= inds.shape[0]
+        num_total_pos = inds.shape[0]
 
         return self.loss_single(x, targets, targets_weights,
                                 num_total_pos if num_total_pos else 1)
