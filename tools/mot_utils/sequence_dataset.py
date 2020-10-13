@@ -64,7 +64,7 @@ def make_dataset(img_dir, gt_file):
 
 
 def parse_seqinfo(info_file):
-    if os.path.exists(info_file):
+    if info_file is not None and os.path.exists(info_file):
         with open(info_file, "r") as f:
             line_splits = [
                 line.split('=') for line in f.read().splitlines()[1:]
