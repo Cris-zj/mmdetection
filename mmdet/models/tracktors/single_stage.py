@@ -1,6 +1,5 @@
 import torch.nn as nn
 
-from mmdet.core import bbox2result
 from .. import builder
 from ..registry import TRACKTORS
 from .base import BaseTracktor
@@ -71,16 +70,12 @@ class SingleStageTracktor(BaseTracktor):
             *loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)
         return losses
 
-    def simple_test(self, img, img_meta, rescale=False):
+    def simple_test(self, img, img_meta, rescale=False, **kwargs):
         x = self.extract_feat(img)
         outs = self.head(x)
-        bbox_inputs = outs + (img_meta, self.test_cfg, rescale)
-        bbox_list = self.head.get_bboxes_and_embeds(*bbox_inputs)
-        bbox_results = [
-            bbox2result(det_bboxes, det_labels, self.head.num_classes)
-            for det_bboxes, det_labels in bbox_list
-        ]
-        return bbox_results[0]
+        inputs = outs + (img_meta, self.test_cfg, rescale)
+        result_list = self.head.get_bboxes_and_embeds(*inputs)
+        return result_list
 
     def aug_test(self, imgs, img_metas, rescale=False):
         raise NotImplementedError
