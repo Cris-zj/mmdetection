@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from mmdet.core import bbox_overlaps, multi_apply
-from mmdet.ops import nms
 from ..anchor_heads import YOLOV4Head
 from ..registry import HEADS
 from ..builder import build_loss
@@ -263,81 +263,24 @@ class YOLOEmbeddingHead(YOLOV4Head):
                        w).permute(0, 2, 3, 1).contiguous()
 
             anchors = mlvl_anchors[i].view(self.num_anchors_per_level, h, w, 4)
-            x[..., :2] = torch.sigmoid(x[..., :2])
-            x[..., :2] = x[..., :2] * self.scale_x_y[i] - \
-                (self.scale_x_y[i] - 1) * 0.5
 
-            x[..., :2] = x[..., :2] * self.anchor_strides[i] + \
-                anchors[..., :2]
-            x[..., 2:4] = torch.exp(x[..., 2:4]) * anchors[..., 2:]
+            x[..., :2] = anchors[..., 2:] * x[..., :2] + anchors[..., :2]
+            x[..., 2:4] = anchors[..., 2:] * torch.exp(x[..., 2:4])
 
             x[..., :2] -= x[..., 2:4] * 0.5
             x[..., 2:4] += x[..., :2]
 
-            torch.sigmoid_(x[..., 4:])
+            x[..., 4:] = torch.softmax(x[..., 4:], dim=-1)
 
             e = embed_output[i]
             e = e.unsqueeze(0).repeat(self.num_anchors_per_level, 1, 1, 1)
             e = e.permute(0, 2, 3, 1).contiguous()
+            e = F.normalize(e, dim=-1)
 
-            pred = torch.cat([x, e], dim=-1)
+            pred = torch.cat([x[..., :4], x[..., 5:6], e], dim=-1)
             pred = pred.view(-1, pred.size()[-1])
 
             predictions.append(pred)
-        predictions = torch.cat(predictions, dim=0)
+        predictions = torch.cat(predictions[::-1], dim=0)
 
-        det_bboxes, det_embeds = self.yolo_nms_with_embedding(
-            predictions, conf_thres=cfg.score_thr, nms_thres=cfg.nms.iou_thr)
-        if det_bboxes is not None:
-            det_bboxes[:, 0].clamp_(min=0, max=img_shape[1] - 1)
-            det_bboxes[:, 1].clamp_(min=0, max=img_shape[0] - 1)
-            det_bboxes[:, 2].clamp_(min=0, max=img_shape[1] - 1)
-            det_bboxes[:, 3].clamp_(min=0, max=img_shape[0] - 1)
-            det_bboxes[:, :4] /= det_bboxes[:, :4].new_tensor(scale_factor)
-            return torch.cat([det_bboxes[:, :5], det_embeds], dim=1), \
-                det_bboxes[:, 5]
-        else:
-            return torch.Tensor([]), torch.Tensor([])
-
-    def yolo_nms_with_embedding(self,
-                                prediction,
-                                conf_thres=0.001,
-                                nms_thres=0.6):
-        min_wh, max_wh = 2, 4096
-        inds = (prediction[:, 4] > conf_thres) & \
-            ((prediction[:, 2:4] > min_wh) &
-             (prediction[:, 2:4] < max_wh)).all(1)
-        prediction = prediction[inds]
-        bbox = prediction[:, :4]
-
-        if not prediction.shape[0]:
-            return None
-
-        prediction[..., 5:self.cls_out_channels + 5] *= prediction[..., 4:5]
-        valid_inds, cls_ids = \
-            (prediction[:, 5:self.cls_out_channels + 5]
-             > conf_thres).nonzero().t()
-        det_bboxes = torch.cat(
-            (bbox[valid_inds],
-             prediction[valid_inds, cls_ids + 5].unsqueeze(1),
-             cls_ids.float().unsqueeze(1)), dim=1)
-        det_embeds = prediction[valid_inds, self.cls_out_channels + 5:]
-
-        inds = torch.isfinite(det_bboxes).all(1)
-        det_bboxes = det_bboxes[inds]
-        det_embeds = det_embeds[inds]
-
-        if not det_bboxes.shape[0]:
-            return None
-
-        boxes = det_bboxes[:, :4].clone() + \
-            det_bboxes[:, 5].view(-1, 1) * max_wh
-        scores = det_bboxes[:, 4]
-
-        _, inds = nms(torch.cat((boxes, scores.view(-1, 1)), 1), nms_thres)
-        weights = (bbox_overlaps(boxes[inds], boxes) > nms_thres) * \
-            scores[None]
-        det_bboxes[inds, :4] = torch.mm(weights, det_bboxes[:, :4]).float() / \
-            weights.sum(1, keepdim=True)
-
-        return det_bboxes[inds], det_embeds[inds]
+        return predictions
