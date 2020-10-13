@@ -858,3 +858,31 @@ class Albu(object):
         repr_str = self.__class__.__name__
         repr_str += '(transformations={})'.format(self.transformations)
         return repr_str
+
+
+@PIPELINES.register_module
+class LetterBox(object):
+
+    def __init__(self, size, border_value, interpolation='bilinear'):
+        self.size = size
+        self.border_value = border_value
+        self.interpolation = interpolation
+
+    def __call__(self, results):
+        img = results['img']
+        h, w = img.shape[:2]
+        ratio = min(float(self.size[0]) / w, float(self.size[1]) / h)
+        new_size = (round(w * ratio), round(h * ratio))
+        dw = (self.size[0] - new_size[0]) / 2
+        dh = (self.size[1] - new_size[1]) / 2
+        top, bottom = round(dh - 0.1), round(dh + 0.1)
+        left, right = round(dw - 0.1), round(dw + 0.1)
+        img = mmcv.imresize(img, new_size, interpolation=self.interpolation)
+        img = mmcv.impad(
+            img, padding=(left, top, right, bottom), pad_val=self.border_value)
+
+        results['img'] = img
+        results['img_shape'] = img.shape
+        results['pad_shape'] = img.shape
+        results['scale_factor'] = ratio
+        return results
