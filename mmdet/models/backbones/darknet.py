@@ -414,7 +414,6 @@ class DarkNet(nn.Module):
             raise TypeError('pretrained must be a str or None')
 
     def forward(self, x):
-
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.act1(x)
@@ -425,8 +424,7 @@ class DarkNet(nn.Module):
             x = layer(x)
             if i in self.out_indices:
                 outs.append(x)
-        else:
-            return tuple(outs)
+        return tuple(outs)
 
     def train(self, mode=True):
         super(DarkNet, self).train(mode)
