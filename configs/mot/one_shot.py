@@ -1,3 +1,14 @@
+_base_ = [
+    '_base_.py'
+]
+
+task_type = 'one_shot'
+model = dict(
+    tracktor=dict(
+        config='configs/personsearch/yolo_embedding.py',
+        checkpoint='pretrained/jde.uncertainty.pth')
+)
+
 data_root = 'data/MOT/MOT17/train/'
 data = dict(
     seq_prefix=data_root,
@@ -26,17 +37,9 @@ data = dict(
         )
     ],
 )
-detection = dict(
+
+post_processing = dict(
     min_conf=0.5,
     min_height=0,
     nms_iou_thr=0.4,
-)
-mot = dict(
-    similarity_metric='euclidean',
-    similarity_thr=0.7,
-    iou_thr=0.6,
-    budget_size=30
-)
-evaluation = dict(
-    iou_thr=0.5
 )
