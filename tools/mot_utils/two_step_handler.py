@@ -7,13 +7,15 @@ from .build import build_detect_encoder, build_embed_encoder
 
 class TwoStepMOT(MultiObjectTracker):
 
-    def __init__(self, cfg):
+    def __init__(self,
+                 cfg,
+                 **kwargs):
         super(TwoStepMOT, self).__init__()
-        self.detector = build_detect_encoder(cfg)
-        self.embeddor = build_embed_encoder(cfg)
+        self.detector = build_detect_encoder(**cfg.detector)
+        self.embeddor = build_embed_encoder(**cfg.embeddor)
 
-    def init_tracks(self):
-        super(TwoStepMOT, self).init_tracks()
+    def init_tracks(self, **kwargs):
+        super(TwoStepMOT, self).init_tracks(**kwargs)
 
     def forward(self, img, cfg):
         bboxes = self.detector(img)

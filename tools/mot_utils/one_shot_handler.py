@@ -9,11 +9,10 @@ from .build import build_tracktor_encoder
 class OneShotMOT(MultiObjectTracker):
 
     def __init__(self,
-                 tracktor_cfg,
-                 tracktor_cp,
+                 cfg,
                  **kwargs):
         super(OneShotMOT, self).__init__(**kwargs)
-        self.tracktor = build_tracktor_encoder(tracktor_cfg, tracktor_cp)
+        self.tracktor = build_tracktor_encoder(**cfg.tracktor)
 
     def init_tracks(self, **kwargs):
         super(OneShotMOT, self).init_tracks(**kwargs)
