@@ -4,15 +4,13 @@ import os
 import mmcv
 from mmdet.datasets import build_dataloader
 
-from mot_utils import build_dataset, OneShotMOT
+from mot_utils import build_dataset, OneShotMOT, TwoStepMOT
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='detection, reid, deepsort.')
     parser.add_argument('--mot_config', help='mot config file path')
-    parser.add_argument('--tracktor_cfg')
-    parser.add_argument('--tracktor_cp')
     parser.add_argument('--output_dir', help='output result dir')
 
     return parser.parse_args()
@@ -24,9 +22,16 @@ def main():
 
     cfg = mmcv.Config.fromfile(args.mot_config)
 
-    tracker = OneShotMOT(args.tracktor_cfg,
-                         args.tracktor_cp,
-                         **cfg.mot)
+    task_type = cfg.get('task_type', None)
+    if task_type == 'one_shot':
+        build_tracker = OneShotMOT
+    elif task_type == 'two_step':
+        build_tracker = TwoStepMOT
+    else:
+        raise ValueError('Currently we only support two types: '
+                         'one_shot and two_step.')
+    tracker = build_tracker(cfg.model, **cfg.mot)
+
     mot_accum_results = []
     total_seqs = sorted(os.listdir(cfg.data.seq_prefix))
     if 'MOT17' in total_seqs[0]:
@@ -64,7 +69,7 @@ def main():
 
         for i, data in enumerate(data_loader):
             # model forward to get detections
-            detections = tracker.forward(data, cfg.detection)
+            detections = tracker.forward(data, cfg.post_processing)
 
             # match tracks and detections
             tracker.update(detections)
