@@ -36,9 +36,9 @@ def extract_image_patch(image, bbox):
     return image
 
 
-def build_tracktor_encoder(cfg, checkpoint, device='cuda:0'):
+def build_tracktor_encoder(config, checkpoint, device='cuda:0'):
     print('Building joint detector and embedding ...')
-    model_cfg = mmcv.Config.fromfile(cfg)
+    model_cfg = mmcv.Config.fromfile(config)
     model_cfg.model.pretrained = None
     model = build_tracktor(model_cfg.model, test_cfg=model_cfg.test_cfg)
     _ = load_checkpoint(model, checkpoint, map_location='cpu')
@@ -52,36 +52,35 @@ def build_tracktor_encoder(cfg, checkpoint, device='cuda:0'):
     return encoder
 
 
-def build_detect_encoder(cfg, device='cuda:0'):
-    # build detector
+def build_detect_encoder(config, checkpoint, device='cuda:0'):
     print('Building detector ...')
-    det_cfg = mmcv.Config.fromfile(cfg.config)
-    det_cfg.model.pretrained = None
-    detector = build_detector(det_cfg.model, test_cfg=det_cfg.test_cfg)
-    _ = load_checkpoint(detector, cfg.checkpoint, map_location='cpu')
-    detector = MMDataParallel(detector, device_ids=[0])
-    detector.eval()
+    model_cfg = mmcv.Config.fromfile(config)
+    model_cfg.model.pretrained = None
+    model = build_detector(model_cfg.model, test_cfg=model_cfg.test_cfg)
+    _ = load_checkpoint(model, checkpoint, map_location='cpu')
+    model = MMDataParallel(model, device_ids=[0])
+    model.eval()
 
-    def detect_encoder(data):
+    def encoder(data):
         with torch.no_grad():
-            return detector(return_loss=False, rescale=not cfg.show, **data)
+            return model(return_loss=False, rescale=True, **data)
 
-    return detect_encoder
+    return encoder
 
 
-def build_embed_encoder(cfg, device='cuda:0'):
+def build_embed_encoder(config, checkpoint, data_cfg, device='cuda:0'):
     # build feature embeddor for reid
     print('Building feature embeddor ...')
-    embed_cfg = mmcv.Config.fromfile(cfg.config)
+    embed_cfg = mmcv.Config.fromfile(config)
     embed_cfg.model.pretrained = None
     embeddor = build_reid(embed_cfg.model)
-    _ = load_checkpoint(embeddor, cfg.checkpoint, map_location='cpu')
+    _ = load_checkpoint(embeddor, checkpoint, map_location='cpu')
     embeddor.to(device)
     embeddor.eval()
     embeddor.forward = embeddor.extract_feat
 
-    input_size = cfg.input_size
-    patch_pipeline = [LoadImage()] + cfg.pipeline
+    input_size = data_cfg.input_size
+    patch_pipeline = [LoadImage()] + data_cfg.pipeline
     patch_transform = reid_Compose(patch_pipeline)
 
     def embed_encoder(image, boxes):
