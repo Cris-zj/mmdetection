@@ -5,7 +5,7 @@ _base_ = [
 task_type = 'two_step'
 model = dict(
     detector=dict(
-        config='/home/zhujiao/AiriaCVLib/configs/test_pipeline_configs/resnet18_spp_pan_v4_crowdhuman_fall_modulewise.py',  # noqa: E501
+        config='/home/zhujiao/repositories/mmdetection/configs/yolo/resnet18_spp_pan_v4_crowdhuman_fall.py',  # noqa: E501
         checkpoint='/home/zhujiao/AiriaCVLib/work_dirs/resnet18_spp_pan_v4_crowdhuman_fall_vf_608_30x_4lr_modulewise/epoch_300.pth',  # noqa: E501
     ),
     embeddor=dict(

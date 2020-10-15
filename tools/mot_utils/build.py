@@ -84,6 +84,7 @@ def build_embed_encoder(config, checkpoint, data_cfg, device='cuda:0'):
     patch_transform = reid_Compose(patch_pipeline)
 
     def embed_encoder(image, boxes):
+        image = mmcv.imread(image)
         image_patches = []
         for box in boxes:
             patch = extract_image_patch(image, box)

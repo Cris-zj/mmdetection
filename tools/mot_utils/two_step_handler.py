@@ -18,19 +18,19 @@ class TwoStepMOT(MultiObjectTracker):
         super(TwoStepMOT, self).init_tracks(**kwargs)
 
     def forward(self, img, cfg):
-        bboxes = self.detector(img)
+        bboxes = self.detector(img)[0]
 
-        valid_labels = cfg.detection.labels
-        bboxes = bboxes[valid_labels[0] - 1]
+        valid_inds = bboxes[:, 4] > cfg.min_conf
+        bboxes = bboxes[valid_inds]
 
-        bboxes = bboxes[bboxes[:, 4] > cfg.min_conf]
         _, keep_inds = nms(bboxes, cfg.nms_iou_thr)
         bboxes = bboxes[keep_inds]
 
-        embeddings = self.embeddor(img, bboxes[:, 0:4]).cpu().numpy()
+        img = img['img_meta'][0].data[0][0]['filename']
+        embeddings = self.embeddor(img, bboxes[:, :4]).cpu().numpy()
 
         detections = []
         for bbox, feat in zip(bboxes, embeddings):
-            detections.append(Detection(bbox[0:4], bbox[4], feat))
+            detections.append(Detection(bbox[:4], bbox[4], feat))
 
         return detections
